@@ -94,6 +94,11 @@ var checkTemplates checkTemplate = checkTemplate{
 		"gods":      "{}thor? odin?",
 		"blueberry": "{}red yellow?",
 	},
+	"integernumber": cdl.Template{
+		"/": "{}i? n?",
+		"n": "number",
+		"i": "integer",
+	},
 }
 
 var checkJsons checkJson = checkJson{
@@ -370,6 +375,30 @@ var checkJsons checkJson = checkJson{
 			"blueberry": { "yellow" : 1 }
 		}
 	`,
+	"integernumber": `
+		{
+			"i" : 1,
+			"n" : 0.5
+		}
+	`,
+	"badintegernumber1": `
+		{
+			"i" : 1.1,
+			"n" : 0.5
+		}
+	`,
+	"badintegernumber2": `
+		{
+			"i" : "a string",
+			"n" : 0.5
+		}
+	`,
+	"badintegernumber3": `
+		{
+			"i" : 1,
+			"n" : "a string"
+		}
+	`,
 }
 
 func isOneOrTwo(o interface{}) *cdl.CdlError {
@@ -387,41 +416,49 @@ func dummy() {
 }
 
 func checkCompile(s string, e int) *cdl.CompiledTemplate {
-	if ct, err := cdl.Compile(checkTemplates[s]); err != nil {
-		if me, ok := err.(*cdl.CdlError); !ok {
-			log.Fatalf("Test checkCompile %s Bad error return %T", s, err)
-		} else {
-			if me.Type != e {
-				log.Fatalf("Test checkCompile %s Returned unexpected error - expecting %d got %v", s, e, me)
-			}
-		}
+	if t, ok := checkTemplates[s]; !ok {
+		log.Fatalf("Cannot find template %s", s)
 		return nil
 	} else {
-		if e != 0 {
-			log.Fatalf("Test checkCompile %s was meant to error with %d but didn't", s, e)
+		if ct, err := cdl.Compile(t); err != nil {
+			if me, ok := err.(*cdl.CdlError); !ok {
+				log.Fatalf("Test checkCompile %s Bad error return %T", s, err)
+			} else {
+				if me.Type != e {
+					log.Fatalf("Test checkCompile %s Returned unexpected error - expecting %d got %v", s, e, me)
+				}
+			}
+			return nil
+		} else {
+			if e != 0 {
+				log.Fatalf("Test checkCompile %s was meant to error with %d but didn't", s, e)
+			}
+			return ct
 		}
-		return ct
 	}
 }
 
 func checkValidate(ct *cdl.CompiledTemplate, s string, e int) {
 	var m interface{}
-
-	if err := json.Unmarshal([]byte(checkJsons[s]), &m); err != nil {
-		log.Fatalf("Test checkJson %s JSON parse error: %v ", s, err)
-	}
-
-	if err := ct.Validate(m); err != nil {
-		if me, ok := err.(*cdl.CdlError); !ok {
-			log.Fatalf("Test checkJson %s Bad error return %T", s, err)
-		} else {
-			if me.Type != e {
-				log.Fatalf("Test checkJson %s Returned unexpected error - expecting %d got %v", s, e, me)
-			}
-		}
+	if j, ok := checkJsons[s]; !ok {
+		log.Fatalf("Cannot find template %s", s)
 	} else {
-		if e != 0 {
-			log.Fatalf("Test checkJson %s was meant to error with %d but didn't", s, e)
+		if err := json.Unmarshal([]byte(j), &m); err != nil {
+			log.Fatalf("Test checkJson %s JSON parse error: %v ", s, err)
+		}
+
+		if err := ct.Validate(m); err != nil {
+			if me, ok := err.(*cdl.CdlError); !ok {
+				log.Fatalf("Test checkJson %s Bad error return %T", s, err)
+			} else {
+				if me.Type != e {
+					log.Fatalf("Test checkJson %s Returned unexpected error - expecting %d got %v", s, e, me)
+				}
+			}
+		} else {
+			if e != 0 {
+				log.Fatalf("Test checkJson %s was meant to error with %d but didn't", s, e)
+			}
 		}
 	}
 }
@@ -449,6 +486,7 @@ func TestCompile(t *testing.T) {
 	checkCompile("badmap6", cdl.ErrBadOptionModifier)
 	checkCompile("badmap7", cdl.ErrBadOptionModifier)
 	checkCompile("badmap8", cdl.ErrBadRangeOptionModifierValue)
+	checkCompile("integernumber", 0)
 }
 
 func TestValidate(t *testing.T) {
@@ -477,6 +515,14 @@ func TestValidate(t *testing.T) {
 	checkValidate(ct1, "badblueberry2", cdl.ErrExpectedMap)
 	checkValidate(ct1, "badblueberry3", cdl.ErrBadKey)
 	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory)
+
+	ct2 := checkCompile("integernumber", 0)
+
+	checkValidate(ct2, "integernumber", 0)
+	checkValidate(ct2, "badintegernumber1", cdl.ErrBadType)
+	checkValidate(ct2, "badintegernumber2", cdl.ErrBadType)
+	checkValidate(ct2, "badintegernumber3", cdl.ErrBadType)
+
 }
 
 func Example_cdlCompile() {

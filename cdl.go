@@ -380,9 +380,17 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string) *CdlError {
 					ok = true
 				}
 			case "integer":
-				switch o.(type) {
+				switch n := o.(type) {
 				case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
 					ok = true
+				case float64:
+					if n == float64(int(n)) {
+						ok = true
+					}
+				case float32:
+					if n == float32(int(n)) {
+						ok = true
+					}
 				}
 			default:
 				otype := fmt.Sprintf("%T", o)

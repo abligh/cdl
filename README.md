@@ -112,6 +112,9 @@ a *validation instruction* in the form of a `string`
 
 4. Each *validation instruction* may be either
   * The Go name of a type (not a slice), e.g. `bool`, `string` etc. (in quotes as it's a `string`)
+  * The word `number` which indicates any numerical type (not `bool`)
+  * The word `integer` which indicates any numerical type where the value is an integer
+    (useful for parsing JSON with `json/encoding` which presents these as `float64`)
   * An *array specifier*, having a form beginning `[]`
   * A *map specifier*, having a form beginning `{}`
 
