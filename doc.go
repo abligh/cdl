@@ -46,13 +46,14 @@
 //  * The root level is specified to be a map ('`{}`'), which may consist of the elements
 //    `apple`, `peach` and `lemon`.
 //  
-//  * There must be an `apple` element and `lemon` element, but the `peach` element is optional
+//  * There must be an `apple` element and `lemon` element, but the `peach` element
+//    is optional.
 //  
 //  * The `apple` element must be a `float64`
 //  
 //  * In order to validate the `peach` element, your own validator function (`isOneOrTwo`)
-//     is called. If this returns a `cdl.CdlError`, that error will be passed to the user (as
-//     an `error`). If it returns `nil`, then validation will continue.
+//     is called. If this returns a `cdl.CdlError`, that error will be passed to the user
+//     (as an `error`). If it returns `nil`, then validation will continue.
 //   
 //  * There is no validation at all on `peach`
 // 
@@ -67,15 +68,15 @@
 // 	}
 // 
 // Here we have allowed in the root level:
-//  * `strawberry`: The `!` indicates it is mandatory; this is the default, so the `!` is unnecessary.
-//     Each `strawberry` must be an array of `nectarine` with between 1 and 3 components, and each
-//     `nectarine` must be a `string`.
+//  * `strawberry`: The `!` indicates it is mandatory; this is the default, so the `!`
+//     is unnecessary. Each `strawberry` must be an array of `nectarine` with between
+//      1 and 3 components, and each `nectarine` must be a `string`.
 //  
-//  * `rasbperry`: This is a shorthand for writing the same thing as above, i.e. an array of between
-//     1 and 3 `raspberry`, each of which must be a string.
+//  * `rasbperry`: This is a shorthand for writing the same thing as above, i.e. an
+//     array of between 1 and 3 `raspberry`, each of which must be a string.
 //  
-//  * `pear`: An array of zero or more items. Note the empty array must be there (if the array itself is
-//     optional, write `pear?*`).
+//  * `pear`: An array of zero or more items. Note the empty array must be there (if
+//     the array itself is optional, write `pear?*`).
 //  
 //  * `plum`: An array of one or more entries.
 // 
@@ -85,7 +86,8 @@
 // 
 // Template syntax in detail
 // 
-// 1. Each key must either be `/` (for the root key) or consist of word characters (i.e. matching `\w+` in regexp terms)
+// 1. Each key must either be `/` (for the root key) or consist of word characters
+// (i.e. matching `\w+` in regexp terms)
 // 
 // 2. Each key must have a value, which may be either a validator function, or
 // a validation instruction in the form of a `string`
@@ -94,30 +96,34 @@
 //    func(obj interface{}) (err *CdlError)`
 // 
 // 4. Each validation instruction may be either
-//   * The Go name of a type (not a slice), e.g. `bool`, `string` etc. (in quotes as it's a `string`)
+//   * The Go name of a type (not a slice), e.g. `bool`, `string` etc. (in quotes as
+//     it's a `string`)
 //   * An array specifier, having a form beginning `[]`
 //   * A map specifier, having a form beginning `{}`
 // 
 // 5. An array specifier has the form `[]key` optionally followed by a range specifier
 //   * The key (`key` above) consists of word characters.
-//   * The key need not be specified within the template (if it isn't, no validation will be done on it).
+//   * The key need not be specified within the template (if it isn't, no validation
+//     will be done on it).
 // 
 // 6. A range specifier takes the form
 //   * `{n,m}` (meaning between `n` and `m`) or
 //   * `{n,}` (meaning at least `n`).
 // 
-// 7. A map specifier has the form `{}` followed by zero or more space-separated map elements
+// 7. A map specifier has the form `{}` followed by zero or more space-separated
+//    map elements
 // 
 // 8. A map element consists of a key (`key`) followed by zero or more modifiers
 //   * The key consists of word characters.
-//   * The key need not be specified within the template (if it isn't, no validation will be done on it).
+//   * The key need not be specified within the template (if it isn't, no validation
+//     will be done on it).
 // 
 // 9. Permitted modifiers are:
 //   * `?` means the key is optional
 //   * `!` means the key is mandatory (the default)
 //   * `*` means the key is an array of 0 or more elements
 //   * `+` means the key is an array of 1 or more elements
-//   * A *range specifier* (see above), i.e.
+//   * A range specifier (see above), i.e.
 //     * `{n,m}` (meaning between `n` and `m`) or
 //     * `{n,}` (meaning at least `n`)
 // 
