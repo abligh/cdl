@@ -1,86 +1,87 @@
-package cdl
+package cdl_test
 
 import (
 	"encoding/json"
+	"github.com/abligh/cdl"
 	"log"
 	"testing"
 )
 
-type checkTemplate map[string]Template
+type checkTemplate map[string]cdl.Template
 type checkJson map[string]string
 
 var checkTemplates checkTemplate = checkTemplate{
-	"simple": Template{
+	"simple": cdl.Template{
 		"/":   "foo",
 		"bar": "int",
 	},
-	"noroot": Template{
+	"noroot": cdl.Template{
 		"x": "foo",
 	},
-	"badkey": Template{
+	"badkey": cdl.Template{
 		"/": "foo",
 		"+": "foo",
 	},
-	"array1": Template{
+	"array1": cdl.Template{
 		"/": "[]foo",
 	},
-	"array2": Template{
+	"array2": cdl.Template{
 		"/": "[]foo{1,3}",
 	},
-	"badarray1": Template{
+	"badarray1": cdl.Template{
 		"/": "[]",
 	},
-	"badarray2": Template{
+	"badarray2": cdl.Template{
 		"/": "[]!",
 	},
-	"badarray3": Template{
+	"badarray3": cdl.Template{
 		"/": "[]foo{3}",
 	},
-	"badarray4": Template{
+	"badarray4": cdl.Template{
 		"/": "[]foo{3,a}",
 	},
-	"badarray5": Template{
+	"badarray5": cdl.Template{
 		"/": "[]foo {1,3}",
 	},
-	"badvalue": Template{
+	"badvalue": cdl.Template{
 		"/": 1,
 	},
-	"validator": Template{
+	"validator": cdl.Template{
 		"/": isOneOrTwo,
 	},
-	"badvalidator1": Template{
+	"badvalidator1": cdl.Template{
 		"/": dummy,
 	},
-	"map": Template{
+	"map": cdl.Template{
 		"/":     "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,}",
 		"apple": "int",
 		"peach": isOneOrTwo,
 	},
-	"badmap1": Template{
+	"badmap1": cdl.Template{
 		"/": "{}/a",
 	},
-	"badmap2": Template{
+	"badmap2": cdl.Template{
 		"/": "{}a/a",
 	},
-	"badmap3": Template{
+	"badmap3": cdl.Template{
 		"/": "{}apple/",
 	},
-	"badmap4": Template{
+	"badmap4": cdl.Template{
 		"/": "{}apple{1",
 	},
-	"badmap5": Template{
+	"badmap5": cdl.Template{
 		"/": "{}apple{-1,-1}",
 	},
-	"badmap6": Template{
+	"badmap6": cdl.Template{
 		"/": "{}apple{a,1}",
 	},
-	"badmap7": Template{
+	"badmap7": cdl.Template{
 		"/": "{}apple{1,a}",
 	},
-	"badmap8": Template{
+	"badmap8": cdl.Template{
 		"/": "{}apple{3,1}",
 	},
-	"example": Template{
+	"example": cdl.Template{
 		"/":         "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,} mango? blueberry?",
 		"apple":     "float64",
 		"peach":     "number",
@@ -370,12 +371,12 @@ var checkJsons checkJson = checkJson{
 	`,
 }
 
-func isOneOrTwo(o interface{}) *CdlError {
+func isOneOrTwo(o interface{}) *cdl.CdlError {
 	if v, ok := o.(float64); !ok {
-		return NewError(ErrBadValue).SetSupplementary("is not a float64")
+		return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not a float64")
 	} else {
 		if v != 1 && v != 2 {
-			return NewError(ErrBadValue).SetSupplementary("is not 1 or 2")
+			return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not 1 or 2")
 		}
 	}
 	return nil
@@ -384,9 +385,9 @@ func isOneOrTwo(o interface{}) *CdlError {
 func dummy() {
 }
 
-func checkCompile(s string, e int) *CompiledTemplate {
-	if ct, err := Compile(checkTemplates[s]); err != nil {
-		if me, ok := err.(*CdlError); !ok {
+func checkCompile(s string, e int) *cdl.CompiledTemplate {
+	if ct, err := cdl.Compile(checkTemplates[s]); err != nil {
+		if me, ok := err.(*cdl.CdlError); !ok {
 			log.Fatalf("Test checkCompile %s Bad error return %T", s, err)
 		} else {
 			if me.Type != e {
@@ -402,7 +403,7 @@ func checkCompile(s string, e int) *CompiledTemplate {
 	}
 }
 
-func checkValidate(ct *CompiledTemplate, s string, e int) {
+func checkValidate(ct *cdl.CompiledTemplate, s string, e int) {
 	var m interface{}
 
 	if err := json.Unmarshal([]byte(checkJsons[s]), &m); err != nil {
@@ -410,7 +411,7 @@ func checkValidate(ct *CompiledTemplate, s string, e int) {
 	}
 
 	if err := ct.Validate(m); err != nil {
-		if me, ok := err.(*CdlError); !ok {
+		if me, ok := err.(*cdl.CdlError); !ok {
 			log.Fatalf("Test checkJson %s Bad error return %T", s, err)
 		} else {
 			if me.Type != e {
@@ -426,27 +427,27 @@ func checkValidate(ct *CompiledTemplate, s string, e int) {
 
 func TestCompile(t *testing.T) {
 	checkCompile("simple", 0)
-	checkCompile("noroot", ErrMissingRoot)
-	checkCompile("badkey", ErrBadKey)
+	checkCompile("noroot", cdl.ErrMissingRoot)
+	checkCompile("badkey", cdl.ErrBadKey)
 	checkCompile("array1", 0)
 	checkCompile("array2", 0)
-	checkCompile("badarray1", ErrBadRangeOptionModifier)
-	checkCompile("badarray2", ErrBadRangeOptionModifier)
-	checkCompile("badarray3", ErrBadRangeOptionModifier)
-	checkCompile("badarray4", ErrBadRangeOptionModifier)
-	checkCompile("badarray5", ErrBadRangeOptionModifier)
-	checkCompile("badvalue", ErrBadValue)
+	checkCompile("badarray1", cdl.ErrBadRangeOptionModifier)
+	checkCompile("badarray2", cdl.ErrBadRangeOptionModifier)
+	checkCompile("badarray3", cdl.ErrBadRangeOptionModifier)
+	checkCompile("badarray4", cdl.ErrBadRangeOptionModifier)
+	checkCompile("badarray5", cdl.ErrBadRangeOptionModifier)
+	checkCompile("badvalue", cdl.ErrBadValue)
 	checkCompile("validator", 0)
-	checkCompile("badvalidator1", ErrBadValue)
+	checkCompile("badvalidator1", cdl.ErrBadValue)
 	checkCompile("map", 0)
-	checkCompile("badmap1", ErrBadOptionValue)
-	checkCompile("badmap2", ErrBadOptionModifier)
-	checkCompile("badmap3", ErrBadOptionModifier)
-	checkCompile("badmap4", ErrBadOptionModifier)
-	checkCompile("badmap5", ErrBadOptionModifier)
-	checkCompile("badmap6", ErrBadOptionModifier)
-	checkCompile("badmap7", ErrBadOptionModifier)
-	checkCompile("badmap8", ErrBadRangeOptionModifierValue)
+	checkCompile("badmap1", cdl.ErrBadOptionValue)
+	checkCompile("badmap2", cdl.ErrBadOptionModifier)
+	checkCompile("badmap3", cdl.ErrBadOptionModifier)
+	checkCompile("badmap4", cdl.ErrBadOptionModifier)
+	checkCompile("badmap5", cdl.ErrBadOptionModifier)
+	checkCompile("badmap6", cdl.ErrBadOptionModifier)
+	checkCompile("badmap7", cdl.ErrBadOptionModifier)
+	checkCompile("badmap8", cdl.ErrBadRangeOptionModifierValue)
 }
 
 func TestValidate(t *testing.T) {
@@ -454,25 +455,25 @@ func TestValidate(t *testing.T) {
 
 	checkValidate(ct1, "simple1", 0)
 	checkValidate(ct1, "simple2", 0)
-	checkValidate(ct1, "bad1", ErrBadType)
-	checkValidate(ct1, "bad2", ErrBadType)
-	checkValidate(ct1, "bad3", ErrBadValue)
+	checkValidate(ct1, "bad1", cdl.ErrBadType)
+	checkValidate(ct1, "bad2", cdl.ErrBadType)
+	checkValidate(ct1, "bad3", cdl.ErrBadValue)
 
 	checkValidate(ct1, "mango", 0)
-	checkValidate(ct1, "badmango1", ErrOutOfRange)
-	checkValidate(ct1, "badmango2", ErrOutOfRange)
-	checkValidate(ct1, "badmango3", ErrExpectedMap)
-	checkValidate(ct1, "badmango4", ErrBadKey)
+	checkValidate(ct1, "badmango1", cdl.ErrOutOfRange)
+	checkValidate(ct1, "badmango2", cdl.ErrOutOfRange)
+	checkValidate(ct1, "badmango3", cdl.ErrExpectedMap)
+	checkValidate(ct1, "badmango4", cdl.ErrBadKey)
 
 	checkValidate(ct1, "jupiter", 0)
-	checkValidate(ct1, "badjupiter1", ErrExpectedArray)
-	checkValidate(ct1, "badjupiter2", ErrBadKey)
-	checkValidate(ct1, "badjupiter3", ErrExpectedMap)
-	checkValidate(ct1, "badjupiter4", ErrExpectedMap)
+	checkValidate(ct1, "badjupiter1", cdl.ErrExpectedArray)
+	checkValidate(ct1, "badjupiter2", cdl.ErrBadKey)
+	checkValidate(ct1, "badjupiter3", cdl.ErrExpectedMap)
+	checkValidate(ct1, "badjupiter4", cdl.ErrExpectedMap)
 
 	checkValidate(ct1, "blueberry", 0)
-	checkValidate(ct1, "badblueberry1", ErrExpectedMap)
-	checkValidate(ct1, "badblueberry2", ErrExpectedMap)
-	checkValidate(ct1, "badblueberry3", ErrBadKey)
-	checkValidate(ct1, "badblueberry4", ErrMissingMandatory)
+	checkValidate(ct1, "badblueberry1", cdl.ErrExpectedMap)
+	checkValidate(ct1, "badblueberry2", cdl.ErrExpectedMap)
+	checkValidate(ct1, "badblueberry3", cdl.ErrBadKey)
+	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory)
 }
