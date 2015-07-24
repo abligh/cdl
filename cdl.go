@@ -131,6 +131,7 @@ func (e *CdlError) AddContext(c string) *CdlError {
 func (e *CdlError) AddContextQuoted(c string) *CdlError {
 	return e.AddContext(fmt.Sprintf("'%s'", c))
 }
+
 // func SetSupplementary adds the specified supplementary data to an existing cdl error.
 func (e *CdlError) SetSupplementary(s string) *CdlError {
 	e.Supplementary = s
@@ -284,6 +285,16 @@ func Compile(t Template) (*CompiledTemplate, error) {
 		return nil, NewError(ErrMissingRoot)
 	}
 	return ct, nil
+}
+
+// MustCompile is like Compile but panics if the expression cannot be parsed.
+// It simplifies safe initialization of global variables holding compiled templates
+func MustCompile(t Template) *CompiledTemplate {
+	ct, error := Compile(t)
+	if error != nil {
+		panic(`cdl: Compile failed: ` + error.Error())
+	}
+	return ct
 }
 
 func (ct *CompiledTemplate) validateRange(o interface{}, pos string, r optrange) *CdlError {
