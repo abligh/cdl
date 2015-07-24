@@ -8,28 +8,34 @@ import (
 	"unicode"
 )
 
+// type Template is a user-provided uncompiled template.
+//
+// See the overview for how these work.
 type Template map[string]interface{}
 
+// type CompiledTemplate is a compiled template.
+//
+// It is opaque to the user in operations.
 type CompiledTemplate struct {
 	s map[string]interface{}
 }
 
-type Options map[string]interface{}
+type options map[string]interface{}
 
-type Range struct {
+type optrange struct {
 	Min int
 	Max int
 }
 
-type Array struct {
+type array struct {
 	name string
-	r    Range
+	r    optrange
 }
 
-type Requirement struct {
+type requirement struct {
 	mandatory bool
 	array     bool
-	r         Range
+	r         optrange
 }
 
 type CdlError struct {
@@ -73,8 +79,12 @@ var ErrorMap map[int]string = map[int]string{
 	ErrMissingMandatory:            "Missing mandatory key",
 }
 
+// type ValidatorFunc allows user specified validation functions to be passed to cdl.
 type ValidatorFunc func(obj interface{}) (err *CdlError)
 
+// func Error implements the Error() function of the error interface.
+//
+// An error string is returned in context.
 func (e CdlError) Error() string {
 	main := ErrorMap[e.Type]
 	if e.Supplementary != "" {
@@ -87,33 +97,47 @@ func (e CdlError) Error() string {
 	}
 }
 
+// func NewError returns a new CdlError of a given type.
+//
+// The type should be a type starting with `Err` in the constants section.
 func NewError(t int) *CdlError {
 	return &CdlError{Type: t}
 }
 
+// func NewErrorContext creates a new CdlError with the specified context string.
+//
+// The type should be a type starting with `Err` in the constants section.
 func NewErrorContext(t int, c string) *CdlError {
 	return (&CdlError{Type: t}).AddContext(c)
 }
 
+// func NewErrorContext creates a new CdlError with the specified context string.
+//
+// The type should be a type starting with `Err` in the constants section.
+// The context string will be quoted.
 func NewErrorContextQuoted(t int, c string) *CdlError {
 	return (&CdlError{Type: t}).AddContextQuoted(c)
 }
 
+// func AddContext adds the specified context to an existing cdl error.
 func (e *CdlError) AddContext(c string) *CdlError {
 	e.Context = append(e.Context, c)
 	return e
 }
 
+// func AddContextQuoted adds the specified context to an existing cdl error.
+//
+// The context will be quoted.
 func (e *CdlError) AddContextQuoted(c string) *CdlError {
 	return e.AddContext(fmt.Sprintf("'%s'", c))
 }
-
+// func SetSupplementary adds the specified supplementary data to an existing cdl error.
 func (e *CdlError) SetSupplementary(s string) *CdlError {
 	e.Supplementary = s
 	return e
 }
 
-func (r *Range) describeError(value int) string {
+func (r *optrange) describeError(value int) string {
 	min := r.Min
 	if min < 0 {
 		min = 0
@@ -125,12 +149,12 @@ func (r *Range) describeError(value int) string {
 	}
 }
 
-func (r *Range) contains(value int) bool {
+func (r *optrange) contains(value int) bool {
 	return (value >= r.Min || r.Min == -1) && (value <= r.Max || r.Max == -1)
 }
 
-func makeOptions(optString string) (*Options, *CdlError) {
-	opts := make(Options)
+func makeoptions(optString string) (*options, *CdlError) {
+	opts := make(options)
 	spaceOrBar := func(r rune) bool {
 		return unicode.IsSpace(r) || (r == '|')
 	}
@@ -139,7 +163,7 @@ func makeOptions(optString string) (*Options, *CdlError) {
 		if len(s) < 3 || s[1] == "" {
 			return nil, NewErrorContextQuoted(ErrBadOptionValue, o)
 		}
-		req := Requirement{mandatory: true, array: false, r: Range{-1, -1}}
+		req := requirement{mandatory: true, array: false, r: optrange{-1, -1}}
 		if s[2] != "" {
 			optslice := regexp.MustCompile("[*+!?]|\\{\\d+,\\d*\\}").FindAllStringSubmatch(s[2], -1)
 			if len(optslice) == 0 {
@@ -155,11 +179,11 @@ func makeOptions(optString string) (*Options, *CdlError) {
 				case c[0] == "!":
 					req.mandatory = true
 				case c[0] == "+":
-					req.r = Range{1, -1}
+					req.r = optrange{1, -1}
 					req.array = true
 				case c[0] == "*":
 					req.array = true
-					req.r = Range{0, -1}
+					req.r = optrange{0, -1}
 				case strings.HasPrefix(c[0], "{"):
 					minMax := regexp.MustCompile("^\\{(\\d+),(\\d*)\\}$").FindStringSubmatch(c[0])
 					if len(minMax) != 3 {
@@ -177,7 +201,7 @@ func makeOptions(optString string) (*Options, *CdlError) {
 						}
 					}
 					req.array = true
-					req.r = Range{min, max}
+					req.r = optrange{min, max}
 				default:
 					return nil, NewErrorContextQuoted(ErrBadOptionModifier, o)
 				}
@@ -193,6 +217,7 @@ func newCompiledTemplate() *CompiledTemplate {
 	return &CompiledTemplate{s: make(map[string]interface{})}
 }
 
+// func Compile compiles a specified cdl template.
 func Compile(t Template) (*CompiledTemplate, error) {
 	ct := newCompiledTemplate()
 	for k, v := range t {
@@ -206,14 +231,14 @@ func Compile(t Template) (*CompiledTemplate, error) {
 			}
 			switch {
 			case strings.HasPrefix(t, "{}"):
-				if o, err := makeOptions(strings.TrimPrefix(t, "{}")); err != nil {
+				if o, err := makeoptions(strings.TrimPrefix(t, "{}")); err != nil {
 					return nil, err.AddContextQuoted(k)
 				} else {
 					ct.s[k] = o
 				}
 			case strings.HasPrefix(t, "[]"):
 				arr := strings.TrimPrefix(t, "[]")
-				rng := Range{-1, -1}
+				rng := optrange{-1, -1}
 				minMax := regexp.MustCompile("^(\\w+)(\\{(\\d+),(\\d*)\\})?$").FindStringSubmatch(arr)
 				if len(minMax) != 5 {
 					return nil, NewErrorContextQuoted(ErrBadRangeOptionModifier, arr)
@@ -231,9 +256,9 @@ func Compile(t Template) (*CompiledTemplate, error) {
 							return nil, NewErrorContextQuoted(ErrBadRangeOptionModifierValue, arr)
 						}
 					}
-					rng = Range{min, max}
+					rng = optrange{min, max}
 				}
-				ct.s[k] = &Array{name: minMax[1], r: rng}
+				ct.s[k] = &array{name: minMax[1], r: rng}
 			default:
 				ct.s[k] = t
 			}
@@ -247,7 +272,7 @@ func Compile(t Template) (*CompiledTemplate, error) {
 	}
 	for _, v := range ct.s {
 		switch t := v.(type) {
-		case *Options:
+		case *options:
 			for optk, _ := range *t {
 				if _, ok := ct.s[optk]; !ok {
 					ct.s[optk] = 0 // autodiscovered
@@ -261,7 +286,7 @@ func Compile(t Template) (*CompiledTemplate, error) {
 	return ct, nil
 }
 
-func (ct *CompiledTemplate) validateRange(o interface{}, pos string, r Range) *CdlError {
+func (ct *CompiledTemplate) validateRange(o interface{}, pos string, r optrange) *CdlError {
 	slice, ok := o.([]interface{})
 	if !ok {
 		return NewError(ErrExpectedArray)
@@ -277,7 +302,7 @@ func (ct *CompiledTemplate) validateRange(o interface{}, pos string, r Range) *C
 	return nil
 }
 
-func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *Options) *CdlError {
+func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *options) *CdlError {
 	m, ok := o.(map[string]interface{})
 	if !ok {
 		return NewError(ErrExpectedMap)
@@ -285,7 +310,7 @@ func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *Options
 	mand := make(map[string]bool)
 	for k, v := range *opts {
 		switch t := v.(type) {
-		case Requirement:
+		case requirement:
 			if t.mandatory {
 				mand[k] = true
 			}
@@ -296,7 +321,7 @@ func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *Options
 			return NewErrorContextQuoted(ErrBadKey, k)
 		} else {
 			switch t := o.(type) {
-			case Requirement:
+			case requirement:
 				if t.array {
 					if err := ct.validateRange(v, k, t.r); err != nil {
 						return err.AddContextQuoted(k)
@@ -331,9 +356,9 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string) *CdlError {
 		switch t := val.(type) {
 		case ValidatorFunc:
 			return t(o)
-		case *Options:
+		case *options:
 			return ct.validateMap(o, pos, t)
-		case *Array:
+		case *array:
 			return ct.validateRange(o, t.name, t.r)
 		case string:
 			ok := false
@@ -366,6 +391,7 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string) *CdlError {
 	return nil
 }
 
+// func Validate validates an object against a cdl template.
 func (ct *CompiledTemplate) Validate(o interface{}) error {
 	if err := ct.validateItem(o, "/"); err != nil {
 		return err

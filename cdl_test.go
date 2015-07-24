@@ -2,6 +2,7 @@ package cdl_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/abligh/cdl"
 	"log"
 	"testing"
@@ -476,4 +477,74 @@ func TestValidate(t *testing.T) {
 	checkValidate(ct1, "badblueberry2", cdl.ErrExpectedMap)
 	checkValidate(ct1, "badblueberry3", cdl.ErrBadKey)
 	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory)
+}
+
+func ExampleCompile() {
+
+	// here's our template
+	template := cdl.Template{
+		"/":     "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,31}",
+		"apple": "float64",
+	}
+
+	if ct, err := cdl.Compile(template); err != nil {
+		log.Fatalf("Error on compile: %v", err)
+	} else {
+
+		// use ct here
+		_ = ct
+	}
+
+	fmt.Println("Success!")
+	// Output: Success!
+}
+
+func ExampleValidate() {
+
+	// here's our template
+	template := cdl.Template{
+		"/":     "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,31}",
+		"apple": "float64",
+		"peach": func(o interface{}) *cdl.CdlError {
+			if v, ok := o.(float64); !ok {
+				return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not a float64")
+			} else {
+				if v != 1 && v != 2 {
+					return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not 1 or 2")
+				}
+			}
+			return nil
+		},
+	}
+
+	if ct, err := cdl.Compile(template); err != nil {
+		log.Fatalf("Error on compile: %v", err)
+	} else {
+
+		// Unmarshal some JSON
+		var m interface{}
+
+		j := `
+		     {
+				"apple" : 3,
+				"pear" : [],
+				"peach" : 2,
+				"plum" : [ 1 ],
+				"raspberry" : [ "a", "b" ],
+				"strawberry" : "here",
+				"guava": [ "c", "d" ]
+		     }`
+
+		if err := json.Unmarshal([]byte(j), &m); err != nil {
+			log.Fatalf("Cannot unmarshal JSON: %v", err)
+		}
+
+		// Validate it
+		if err := ct.Validate(m); err != nil {
+			log.Fatalf("Validation error: %v", err)
+		}
+
+		fmt.Println("Success!")
+		// Output: Success!
+	}
 }
