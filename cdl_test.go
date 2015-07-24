@@ -52,7 +52,7 @@ var checkTemplates checkTemplate = checkTemplate{
 		"/": dummy,
 	},
 	"map": Template{
-		"/":     "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,31}",
+		"/":     "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,}",
 		"apple": "int",
 		"peach": isOneOrTwo,
 	},
@@ -81,7 +81,7 @@ var checkTemplates checkTemplate = checkTemplate{
 		"/": "{}apple{3,1}",
 	},
 	"example": Template{
-		"/":         "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,31} mango? blueberry?",
+		"/":         "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,} mango? blueberry?",
 		"apple":     "float64",
 		"peach":     "number",
 		"pear":      "string",

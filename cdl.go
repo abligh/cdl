@@ -141,7 +141,7 @@ func makeOptions(optString string) (*Options, *CdlError) {
 		}
 		req := Requirement{mandatory: true, array: false, r: Range{-1, -1}}
 		if s[2] != "" {
-			optslice := regexp.MustCompile("[*+!?]|\\{\\d+,\\d+\\}").FindAllStringSubmatch(s[2], -1)
+			optslice := regexp.MustCompile("[*+!?]|\\{\\d+,\\d*\\}").FindAllStringSubmatch(s[2], -1)
 			if len(optslice) == 0 {
 				return nil, NewErrorContextQuoted(ErrBadOptionModifier, o)
 			}
@@ -161,14 +161,20 @@ func makeOptions(optString string) (*Options, *CdlError) {
 					req.array = true
 					req.r = Range{0, -1}
 				case strings.HasPrefix(c[0], "{"):
-					minMax := regexp.MustCompile("^\\{(\\d+),(\\d+)\\}$").FindStringSubmatch(c[0])
+					minMax := regexp.MustCompile("^\\{(\\d+),(\\d*)\\}$").FindStringSubmatch(c[0])
 					if len(minMax) != 3 {
 						return nil, NewErrorContextQuoted(ErrBadRangeOptionModifier, o)
 					}
 					min, err1 := strconv.Atoi(minMax[1])
-					max, err2 := strconv.Atoi(minMax[2])
-					if (err1 != nil) || (err2 != nil) || (min > max) {
+					if err1 != nil {
 						return nil, NewErrorContextQuoted(ErrBadRangeOptionModifierValue, o)
+					}
+					max := -1
+					if minMax[2] != "" {
+						max, err2 := strconv.Atoi(minMax[2])
+						if (err2 != nil) || (min > max) {
+							return nil, NewErrorContextQuoted(ErrBadRangeOptionModifierValue, o)
+						}
 					}
 					req.array = true
 					req.r = Range{min, max}
@@ -208,15 +214,22 @@ func Compile(t Template) (*CompiledTemplate, error) {
 			case strings.HasPrefix(t, "[]"):
 				arr := strings.TrimPrefix(t, "[]")
 				rng := Range{-1, -1}
-				minMax := regexp.MustCompile("^(\\w+)(\\{(\\d+),(\\d+)\\})?$").FindStringSubmatch(arr)
+				minMax := regexp.MustCompile("^(\\w+)(\\{(\\d+),(\\d*)\\})?$").FindStringSubmatch(arr)
 				if len(minMax) != 5 {
 					return nil, NewErrorContextQuoted(ErrBadRangeOptionModifier, arr)
 				}
-				if minMax[3] != "" && minMax[4] != "" {
+				if minMax[3] != "" {
 					min, err1 := strconv.Atoi(minMax[3])
-					max, err2 := strconv.Atoi(minMax[4])
-					if (err1 != nil) || (err2 != nil) || (min > max) {
+					if err1 != nil {
 						return nil, NewErrorContextQuoted(ErrBadRangeOptionModifierValue, arr)
+					}
+					max := -1
+					if minMax[4] != "" {
+						var err2 error
+						max, err2 = strconv.Atoi(minMax[4])
+						if (err2 != nil) || (min > max) {
+							return nil, NewErrorContextQuoted(ErrBadRangeOptionModifierValue, arr)
+						}
 					}
 					rng = Range{min, max}
 				}
