@@ -154,7 +154,7 @@ func (r *optrange) contains(value int) bool {
 	return (value >= r.Min || r.Min == -1) && (value <= r.Max || r.Max == -1)
 }
 
-func makeoptions(optString string) (*options, *CdlError) {
+func makeOptions(optString string) (*options, *CdlError) {
 	opts := make(options)
 	spaceOrBar := func(r rune) bool {
 		return unicode.IsSpace(r) || (r == '|')
@@ -232,7 +232,7 @@ func Compile(t Template) (*CompiledTemplate, error) {
 			}
 			switch {
 			case strings.HasPrefix(t, "{}"):
-				if o, err := makeoptions(strings.TrimPrefix(t, "{}")); err != nil {
+				if o, err := makeOptions(strings.TrimPrefix(t, "{}")); err != nil {
 					return nil, err.AddContextQuoted(k)
 				} else {
 					ct.s[k] = o
