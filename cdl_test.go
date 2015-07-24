@@ -479,7 +479,7 @@ func TestValidate(t *testing.T) {
 	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory)
 }
 
-func ExampleCompile() {
+func Example_cdlCompile() {
 
 	// here's our template
 	template := cdl.Template{
@@ -499,7 +499,7 @@ func ExampleCompile() {
 	// Output: Success!
 }
 
-func ExampleValidate() {
+func Example_cdlValidate() {
 
 	// here's our template
 	template := cdl.Template{
