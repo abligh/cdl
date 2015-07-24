@@ -101,6 +101,45 @@ optional, write `pear?*`).
 
 * `guava`: A mandatory array of between 1 and 2 entries
 
+### Template syntax in detail
+
+1. Each *key* must either be `/` (for the root key) or consist of *word characters* (i.e. matching `\w+` in regexp terms)
+
+2. Each *key* must have a value, which may be either a *validator function*, or
+a *validation instruction* in the form of a `string`
+
+3. A *validator function* is a function with the signature `func(obj interface{}) (err *CdlError)`
+
+4. Each *validation instruction* may be either
+  * The Go name of a type (not a slice), e.g. `bool`, `string` etc. (in quotes as it's a `string`)
+  * An *array specifier*, having a form beginning `[]`
+  * A *map specifier*, having a form beginning `{}`
+
+5. An *array specifier* has the form `[]key` optionally followed by a *range specifier*
+  * The *key* (`key` above) consists of *word characters*.
+  * The *key* need not be specified within the template (if it isn't, no validation will be done on it).
+
+6. A *range specifier* takes the form
+  * `{n,m}` (meaning between `n` and `m`) or
+  * `{n,}` (meaning at least `n`).
+
+7. A *map specifier* has the form `{}` followed by zero or more space-separated *map elements*
+
+8. A *map element* consists of a *key* (`key`) followed by zero or more *modifiers*
+  * The *key* consists of *word characters*.
+  * The *key* need not be specified within the template (if it isn't, no validation will be done on it).
+
+9. Permitted *modifiers* are:
+  * `?` means the *key* is optional
+  * `!` means the *key* is mandatory (the default)
+  * `*` means the *key* is an array of 0 or more elements
+  * `+` means the *key* is an array of 1 or more elements
+  * A *range specifier* (see above), i.e.
+    * `{n,m}` (meaning between `n` and `m`) or
+    * `{n,}` (meaning at least `n`)
+
+### Validator Functions
+
 Where the validator is passed, it is a function with signature:
 
 ```go
