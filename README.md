@@ -1,4 +1,4 @@
-# cdl [![Build Status](https://travis-ci.org/abligh/cdl.svg?branch=master)](https://travis-ci.org/abligh/cdl) [![GitHub release](https://img.shields.io/github/release/abligh/cdl.svg)](https://github.com/abligh/cdl/releases)
+# cdl [![Build Status](https://travis-ci.org/abligh/cdl.svg?branch=master)](https://travis-ci.org/abligh/cdl) [![GoDoc](http://godoc.org/github.com/abligh/cdl?status.png)](http://godoc.org/github.com/abligh/cdl) [![GitHub release](https://img.shields.io/github/release/abligh/cdl.svg)](https://github.com/abligh/cdl/releases)
 cdl is a configuration definition language for Go
 
 There are several ways to import configuration files into Go, from
