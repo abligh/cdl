@@ -27,12 +27,16 @@ ct := cdl.Compile(...)
 ```
 
 then validate using
-```
-err := ct.Validate(object)
+```go
+err := ct.Validate(object, nil)
 ```
 
 If the validation fails, you will get an `error` return with a context
 that will allow a user to discover the error in his file.
+
+So what was that `nil` parameter to `cdt.Validate` about? cdl also
+permits you to pass a configurator in, so that you can store the values
+retrieved in appropriate places.
 
 cdl templates
 -------------
@@ -165,6 +169,48 @@ func isOneOrTwo(o interface{}) *cdl.CdlError {
 }
 ```
 
+cdl Configurators
+-----------------
+
+A cdl configurator may optionally be passed to the `Validate` function. The
+configurator allows you to consume the configuration in your program now
+you know that is validated.
+
+The configurator consists of a map of keys to the `ConfiguratorFunc` type (or a
+function with a similar signature), which looks like this:
+
+```go
+type ConfiguratorFunc func(obj interface{}, path Path) (err *CdlError)
+```
+
+This function is guaranteed to be called for each item in the tree
+(if it's key is present in the configurator) after it and all of
+its children have been validated. It may return an error (just like
+a validator function).
+
+The object passed will be the validated object from the configuration
+tree. It is guaranteed to be of the correct type, which means the type
+you asked for save for the following exceptions:
+
+1. If you asked for the pseudo-type `number`, you will always be given a `float64`.
+
+2. If you asked for the pseudo-type `integer`, you will always be given an `int`.
+
+As a trivial example:
+
+```go
+var i int
+err := ct.Validate(object, cdl.Configurator{
+	"i": func(o interface{}, p cdl.Path) *cdl.CdlError {
+		i = o.(int)
+		return nil
+	},
+})
+```
+
+Here the parameter named `"i"` in the template will be stored in
+variable `i`.
+
 Installation
 ------------
 
@@ -237,7 +283,7 @@ func main() {
 		}
 
 		// Validate it
-		if err := ct.Validate(m); err != nil {
+		if err := ct.Validate(m, nil); err != nil {
 			log.Fatalf("Validation error: %v", err)
 		}
 		

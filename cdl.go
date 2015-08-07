@@ -13,6 +13,9 @@ import (
 // See the overview for how these work.
 type Template map[string]interface{}
 
+// type Configurator is a map of Configurator functions
+type Configurator map[string]interface{}
+
 // type CompiledTemplate is a compiled template.
 //
 // It is opaque to the user in operations.
@@ -81,6 +84,48 @@ var ErrorMap map[int]string = map[int]string{
 
 // type ValidatorFunc allows user specified validation functions to be passed to cdl.
 type ValidatorFunc func(obj interface{}) (err *CdlError)
+
+// type Path is an array of items constituting the path to an item to be checked for configuration
+type Path struct {
+	items []interface{}
+}
+
+func (p *Path) push(o interface{}) Path {
+	return Path{items: append(p.items, o)}
+}
+
+// func Slice returns a slice of objects representing the path.
+//
+// The objects may be strings or integers
+func (p *Path) Slice() []interface{} {
+	return p.items
+}
+
+// func StringSlice returns a slice of strings representing a path
+func (p *Path) StringSlice() []string {
+	ss := make([]string, len(p.items))
+	for i, v := range p.items {
+		switch s := v.(type) {
+		case string:
+			ss[i] = s
+		case int:
+			ss[i] = fmt.Sprintf("%d", s)
+		default:
+			ss[i] = fmt.Sprintf("%v", s)
+		}
+	}
+	return ss
+}
+
+// func String produces a string representation of a path
+//
+// The path elements are separated by '/'
+func (p *Path) String() string {
+	return strings.Join(p.StringSlice(), "/")
+}
+
+// type ConfiguratorFunc allows user specified configurator functions to be passed to cdl.
+type ConfiguratorFunc func(obj interface{}, path Path) (err *CdlError)
 
 // func Error implements the Error() function of the error interface.
 //
@@ -297,7 +342,7 @@ func MustCompile(t Template) *CompiledTemplate {
 	return ct
 }
 
-func (ct *CompiledTemplate) validateRange(o interface{}, pos string, r optrange) *CdlError {
+func (ct *CompiledTemplate) validateRange(o interface{}, pos string, r optrange, configurator Configurator, path Path) *CdlError {
 	slice, ok := o.([]interface{})
 	if !ok {
 		return NewError(ErrExpectedArray)
@@ -306,14 +351,14 @@ func (ct *CompiledTemplate) validateRange(o interface{}, pos string, r optrange)
 		return NewError(ErrOutOfRange).SetSupplementary(r.describeError(len(slice)))
 	}
 	for i, v := range slice {
-		if err := ct.validateItem(v, pos); err != nil {
+		if err := ct.validateAndConfigureItem(v, pos, configurator, path.push(i)); err != nil {
 			return err.AddContext(fmt.Sprintf("index %d", i))
 		}
 	}
 	return nil
 }
 
-func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *options) *CdlError {
+func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *options, configurator Configurator, path Path) *CdlError {
 	m, ok := o.(map[string]interface{})
 	if !ok {
 		return NewError(ErrExpectedMap)
@@ -334,11 +379,11 @@ func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *options
 			switch t := o.(type) {
 			case requirement:
 				if t.array {
-					if err := ct.validateRange(v, k, t.r); err != nil {
+					if err := ct.validateRange(v, k, t.r, configurator, path.push(k)); err != nil {
 						return err.AddContextQuoted(k)
 					}
 				} else {
-					if err := ct.validateItem(v, k); err != nil {
+					if err := ct.validateAndConfigureItem(v, k, configurator, path.push(k)); err != nil {
 						return err.AddContextQuoted(k)
 					}
 				}
@@ -360,7 +405,7 @@ func (ct *CompiledTemplate) validateMap(o interface{}, pos string, opts *options
 	return nil
 }
 
-func (ct *CompiledTemplate) validateItem(o interface{}, pos string) *CdlError {
+func (ct *CompiledTemplate) validateItem(o interface{}, pos string, configurator Configurator, path Path) *CdlError {
 	if val, ok := ct.s[pos]; !ok {
 		return NewError(ErrUnknownKey)
 	} else {
@@ -368,9 +413,9 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string) *CdlError {
 		case ValidatorFunc:
 			return t(o)
 		case *options:
-			return ct.validateMap(o, pos, t)
+			return ct.validateMap(o, pos, t, configurator, path)
 		case *array:
-			return ct.validateRange(o, t.name, t.r)
+			return ct.validateRange(o, t.name, t.r, configurator, path)
 		case string:
 			ok := false
 			switch t {
@@ -410,9 +455,95 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string) *CdlError {
 	return nil
 }
 
+func (ct *CompiledTemplate) validateAndConfigureItem(o interface{}, pos string, configurator Configurator, path Path) *CdlError {
+	if err := ct.validateItem(o, pos, configurator, path); err != nil {
+		return err
+	}
+	if configurator != nil {
+		if cnf, ok := configurator[pos]; ok && (cnf != nil) {
+			if val, ok := ct.s[pos]; !ok {
+				return NewError(ErrUnknownKey)
+			} else {
+				v := o
+				switch t := val.(type) {
+				case string:
+					switch t {
+					case "number":
+						switch n := o.(type) {
+						// Go unhelpfully does not allow casting with a multiple case type assertion
+						case int:
+							v = float64(n)
+						case int8:
+							v = float64(n)
+						case int16:
+							v = float64(n)
+						case int32:
+							v = float64(n)
+						case int64:
+							v = float64(n)
+						case uint:
+							v = float64(n)
+						case uint8:
+							v = float64(n)
+						case uint16:
+							v = float64(n)
+						case uint32:
+							v = float64(n)
+						case uint64:
+							v = float64(n)
+						case float32:
+							v = float64(n)
+						case float64:
+							v = float64(n)
+						}
+					case "integer":
+						switch n := o.(type) {
+						// Go unhelpfully does not allow casting with a multiple case type assertion
+						case int:
+							v = int(n)
+						case int8:
+							v = int(n)
+						case int16:
+							v = int(n)
+						case int32:
+							v = int(n)
+						case int64:
+							v = int(n)
+						case uint:
+							v = int(n)
+						case uint8:
+							v = int(n)
+						case uint16:
+							v = int(n)
+						case uint32:
+							v = int(n)
+						case uint64:
+							v = int(n)
+						case float32:
+							v = int(n)
+						case float64:
+							v = int(n)
+						}
+					}
+				}
+				switch t := cnf.(type) {
+				case ConfiguratorFunc:
+					return t(v, path)
+				case func(interface{}, Path) *CdlError: // in case they didn't cast it
+					return t(v, path)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // func Validate validates an object against a cdl template.
-func (ct *CompiledTemplate) Validate(o interface{}) error {
-	if err := ct.validateItem(o, "/"); err != nil {
+//
+// Optionally a configurator may be passed. This can be nil if you do not need configurator functions calling
+func (ct *CompiledTemplate) Validate(o interface{}, configurator Configurator) error {
+	path := Path{}
+	if err := ct.validateAndConfigureItem(o, "/", configurator, path); err != nil {
 		return err
 	}
 	return nil

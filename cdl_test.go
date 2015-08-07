@@ -438,7 +438,7 @@ func checkCompile(s string, e int) *cdl.CompiledTemplate {
 	}
 }
 
-func checkValidate(ct *cdl.CompiledTemplate, s string, e int) {
+func checkValidate(ct *cdl.CompiledTemplate, s string, e int, c cdl.Configurator) {
 	var m interface{}
 	if j, ok := checkJsons[s]; !ok {
 		log.Fatalf("Cannot find template %s", s)
@@ -447,7 +447,7 @@ func checkValidate(ct *cdl.CompiledTemplate, s string, e int) {
 			log.Fatalf("Test checkJson %s JSON parse error: %v ", s, err)
 		}
 
-		if err := ct.Validate(m); err != nil {
+		if err := ct.Validate(m, c); err != nil {
 			if me, ok := err.(*cdl.CdlError); !ok {
 				log.Fatalf("Test checkJson %s Bad error return %T", s, err)
 			} else {
@@ -492,36 +492,50 @@ func TestCompile(t *testing.T) {
 func TestValidate(t *testing.T) {
 	ct1 := checkCompile("example", 0)
 
-	checkValidate(ct1, "simple1", 0)
-	checkValidate(ct1, "simple2", 0)
-	checkValidate(ct1, "bad1", cdl.ErrBadType)
-	checkValidate(ct1, "bad2", cdl.ErrBadType)
-	checkValidate(ct1, "bad3", cdl.ErrBadValue)
+	checkValidate(ct1, "simple1", 0, nil)
+	checkValidate(ct1, "simple2", 0, nil)
+	checkValidate(ct1, "bad1", cdl.ErrBadType, nil)
+	checkValidate(ct1, "bad2", cdl.ErrBadType, nil)
+	checkValidate(ct1, "bad3", cdl.ErrBadValue, nil)
 
-	checkValidate(ct1, "mango", 0)
-	checkValidate(ct1, "badmango1", cdl.ErrOutOfRange)
-	checkValidate(ct1, "badmango2", cdl.ErrOutOfRange)
-	checkValidate(ct1, "badmango3", cdl.ErrExpectedMap)
-	checkValidate(ct1, "badmango4", cdl.ErrBadKey)
+	checkValidate(ct1, "mango", 0, nil)
+	checkValidate(ct1, "badmango1", cdl.ErrOutOfRange, nil)
+	checkValidate(ct1, "badmango2", cdl.ErrOutOfRange, nil)
+	checkValidate(ct1, "badmango3", cdl.ErrExpectedMap, nil)
+	checkValidate(ct1, "badmango4", cdl.ErrBadKey, nil)
 
-	checkValidate(ct1, "jupiter", 0)
-	checkValidate(ct1, "badjupiter1", cdl.ErrExpectedArray)
-	checkValidate(ct1, "badjupiter2", cdl.ErrBadKey)
-	checkValidate(ct1, "badjupiter3", cdl.ErrExpectedMap)
-	checkValidate(ct1, "badjupiter4", cdl.ErrExpectedMap)
+	checkValidate(ct1, "jupiter", 0, nil)
+	checkValidate(ct1, "badjupiter1", cdl.ErrExpectedArray, nil)
+	checkValidate(ct1, "badjupiter2", cdl.ErrBadKey, nil)
+	checkValidate(ct1, "badjupiter3", cdl.ErrExpectedMap, nil)
+	checkValidate(ct1, "badjupiter4", cdl.ErrExpectedMap, nil)
 
-	checkValidate(ct1, "blueberry", 0)
-	checkValidate(ct1, "badblueberry1", cdl.ErrExpectedMap)
-	checkValidate(ct1, "badblueberry2", cdl.ErrExpectedMap)
-	checkValidate(ct1, "badblueberry3", cdl.ErrBadKey)
-	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory)
+	checkValidate(ct1, "blueberry", 0, nil)
+	checkValidate(ct1, "badblueberry1", cdl.ErrExpectedMap, nil)
+	checkValidate(ct1, "badblueberry2", cdl.ErrExpectedMap, nil)
+	checkValidate(ct1, "badblueberry3", cdl.ErrBadKey, nil)
+	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory, nil)
 
 	ct2 := checkCompile("integernumber", 0)
 
-	checkValidate(ct2, "integernumber", 0)
-	checkValidate(ct2, "badintegernumber1", cdl.ErrBadType)
-	checkValidate(ct2, "badintegernumber2", cdl.ErrBadType)
-	checkValidate(ct2, "badintegernumber3", cdl.ErrBadType)
+	var n float64
+	var i int
+	checkValidate(ct2, "integernumber", 0, cdl.Configurator{
+		"n": func(o interface{}, p cdl.Path) *cdl.CdlError {
+			n = o.(float64)
+			return nil
+		},
+		"i": func(o interface{}, p cdl.Path) *cdl.CdlError {
+			i = o.(int)
+			return nil
+		},
+	})
+	if (i != 1) || (n != 0.5) {
+		log.Fatalf("Configurator failed: results %d, %f", i, n)
+	}
+	checkValidate(ct2, "badintegernumber1", cdl.ErrBadType, nil)
+	checkValidate(ct2, "badintegernumber2", cdl.ErrBadType, nil)
+	checkValidate(ct2, "badintegernumber3", cdl.ErrBadType, nil)
 
 }
 
@@ -567,6 +581,14 @@ func Example_cdlValidate() {
 		log.Fatalf("Error on compile: %v", err)
 	} else {
 
+		// here's our configurator
+		configurator := cdl.Configurator{
+			"apple": func(o interface{}, p cdl.Path) *cdl.CdlError {
+				fmt.Printf("Apple is %1.0f - ", o.(float64))
+				return nil
+			},
+		}
+
 		// Unmarshal some JSON
 		var m interface{}
 
@@ -586,11 +608,11 @@ func Example_cdlValidate() {
 		}
 
 		// Validate it
-		if err := ct.Validate(m); err != nil {
+		if err := ct.Validate(m, configurator); err != nil {
 			log.Fatalf("Validation error: %v", err)
 		}
 
 		fmt.Println("Success!")
-		// Output: Success!
+		// Output: Apple is 3 - Success!
 	}
 }
