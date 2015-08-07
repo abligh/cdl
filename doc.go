@@ -178,7 +178,7 @@
 //
 // 2. If you asked for the pseudo-type `integer`, you will always be given an `int`.
 //
-//  As a trivial example:
+// As a trivial example:
 //
 //     var i int
 //     err := ct.Validate(object, cdl.Configurator{
