@@ -120,7 +120,7 @@ func (p *Path) StringSlice() []string {
 // func String produces a string representation of a path
 //
 // The path elements are separated by '/'
-func (p *Path) String() string {
+func (p Path) String() string {
 	return strings.Join(p.StringSlice(), "/")
 }
 
