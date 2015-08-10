@@ -2,6 +2,7 @@ package cdl
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"strconv"
 	"strings"
@@ -121,7 +122,7 @@ func (p *Path) StringSlice() []string {
 //
 // The path elements are separated by '/'
 func (p Path) String() string {
-	return strings.Join(p.StringSlice(), "/")
+	return "/" + strings.Join(p.StringSlice(), "/")
 }
 
 // type ConfiguratorFunc allows user specified configurator functions to be passed to cdl.
@@ -434,6 +435,13 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string, configurator
 					}
 				case float32:
 					if n == float32(int(n)) {
+						ok = true
+					}
+				}
+			case "ipport":
+				switch n := o.(type) {
+				case string:
+					if _, _, err := net.SplitHostPort(n); err == nil {
 						ok = true
 					}
 				}

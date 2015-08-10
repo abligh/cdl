@@ -102,31 +102,36 @@
 // 4. Each validation instruction may be either
 //   * The Go name of a type (not a slice), e.g. `bool`, `string` etc. (in quotes as
 //     it's a `string`)
+//   * A pseudotype (e.g. `number`, `integer`) - see below
+//   * An array specifier, having a form beginning `[]`
+//   * A map specifier, having a form beginning `{}`
+//
+// 5. Each pseudotype may be either
 //   * The word `number` which indicates any numerical type (not `bool`)
 //   * The word `integer` which indicates any numerical type where the value is an
 //     integer (useful for parsing JSON with `json/encoding` which presents these as
 //     `float64`)
-//   * An array specifier, having a form beginning `[]`
-//   * A map specifier, having a form beginning `{}`
+//   * The word `ipport` for an IP port pair which is successfully decoded by
+//     `net.SplitHostPort`
 //
-// 5. An array specifier has the form `[]key` optionally followed by a range specifier
+// 6. An array specifier has the form `[]key` optionally followed by a range specifier
 //   * The key (`key` above) consists of word characters.
 //   * The key need not be specified within the template (if it isn't, no validation
 //     will be done on it).
 //
-// 6. A range specifier takes the form
+// 7. A range specifier takes the form
 //   * `{n,m}` (meaning between `n` and `m`) or
 //   * `{n,}` (meaning at least `n`).
 //
-// 7. A map specifier has the form `{}` followed by zero or more space-separated
+// 8. A map specifier has the form `{}` followed by zero or more space-separated
 //    map elements
 //
-// 8. A map element consists of a key (`key`) followed by zero or more modifiers
+// 9. A map element consists of a key (`key`) followed by zero or more modifiers
 //   * The key consists of word characters.
 //   * The key need not be specified within the template (if it isn't, no validation
 //     will be done on it).
 //
-// 9. Permitted modifiers are:
+// 10. Permitted modifiers are:
 //   * `?` means the key is optional
 //   * `!` means the key is mandatory (the default)
 //   * `*` means the key is an array of 0 or more elements

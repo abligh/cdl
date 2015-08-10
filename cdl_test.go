@@ -83,7 +83,7 @@ var checkTemplates checkTemplate = checkTemplate{
 		"/": "{}apple{3,1}",
 	},
 	"example": cdl.Template{
-		"/":         "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,} mango? blueberry?",
+		"/":         "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,} mango? blueberry? cherry?",
 		"apple":     "float64",
 		"peach":     "number",
 		"pear":      "string",
@@ -93,6 +93,7 @@ var checkTemplates checkTemplate = checkTemplate{
 		"jupiter":   "[]gods",
 		"gods":      "{}thor? odin?",
 		"blueberry": "{}red yellow?",
+		"cherry":    "ipport",
 	},
 	"integernumber": cdl.Template{
 		"/": "{}i? n?",
@@ -399,6 +400,50 @@ var checkJsons checkJson = checkJson{
 			"n" : "a string"
 		}
 	`,
+	"cherry": `
+	{
+		"apple" : 3,
+		"pear" : [],
+		"plum" : [ 1 ],
+		"raspberry" : [ "a", "b" ],
+		"strawberry" : "here",
+		"guava": [ "c", "d" ],
+		"cherry": "127.0.0.1:1234"
+	}
+	`,
+	"badcherry1": `
+	{
+		"apple" : 3,
+		"pear" : [],
+		"plum" : [ 1 ],
+		"raspberry" : [ "a", "b" ],
+		"strawberry" : "here",
+		"guava": [ "c", "d" ],
+		"cherry": 1234
+	}
+	`,
+	"badcherry2": `
+	{
+		"apple" : 3,
+		"pear" : [],
+		"plum" : [ 1 ],
+		"raspberry" : [ "a", "b" ],
+		"strawberry" : "here",
+		"guava": [ "c", "d" ],
+		"cherry": "thisisnotahostportpair"
+	}
+	`,
+	"badcherry3": `
+	{
+		"apple" : 3,
+		"pear" : [],
+		"plum" : [ 1 ],
+		"raspberry" : [ "a", "b" ],
+		"strawberry" : "here",
+		"guava": [ "c", "d" ],
+		"cherry": "127.0.0.1"
+	}
+	`,
 }
 
 func isOneOrTwo(o interface{}) *cdl.CdlError {
@@ -516,6 +561,10 @@ func TestValidate(t *testing.T) {
 	checkValidate(ct1, "badblueberry3", cdl.ErrBadKey, nil)
 	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory, nil)
 
+	checkValidate(ct1, "cherry", 0, nil)
+	checkValidate(ct1, "badcherry1", cdl.ErrBadType, nil)
+	checkValidate(ct1, "badcherry2", cdl.ErrBadType, nil)
+	checkValidate(ct1, "badcherry3", cdl.ErrBadType, nil)
 	ct2 := checkCompile("integernumber", 0)
 
 	var n float64
