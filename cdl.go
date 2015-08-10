@@ -64,6 +64,7 @@ const (
 	ErrOutOfRange                  = iota
 	ErrBadType                     = iota
 	ErrMissingMandatory            = iota
+	ErrBadConfigurator			   = iota
 )
 
 var ErrorMap map[int]string = map[int]string{
@@ -81,6 +82,7 @@ var ErrorMap map[int]string = map[int]string{
 	ErrOutOfRange:                  "Number of array items outside permissible range",
 	ErrBadType:                     "Bad type",
 	ErrMissingMandatory:            "Missing mandatory key",
+	ErrBadConfigurator:             "Bad configurator",
 }
 
 // type ValidatorFunc allows user specified validation functions to be passed to cdl.
@@ -539,6 +541,8 @@ func (ct *CompiledTemplate) validateAndConfigureItem(o interface{}, pos string, 
 					return t(v, path)
 				case func(interface{}, Path) *CdlError: // in case they didn't cast it
 					return t(v, path)
+				default:
+					return NewError(ErrBadConfigurator)
 				}
 			}
 		}
