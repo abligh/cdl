@@ -196,7 +196,7 @@ being required will cause a type conversion:
 
 2. If you required the pseudo-type `integer`, you will always be given an `int`
 
-A pointer configuration function has a `ConfiguratorFunc` type
+If a pointer configuration function is used, it has a `ConfiguratorFunc` type
 (or a function with a similar signature), which looks like this:
 
 ```go
