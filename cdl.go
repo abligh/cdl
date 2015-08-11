@@ -414,6 +414,16 @@ func (ct *CompiledTemplate) validateAndConfigureItem(o interface{}, pos string, 
 							v = int(n)
 						}
 					}
+				case *EnumType:
+					switch n := o.(type) {
+					case string:
+						if !t.Has(n) {
+							return NewError("ErrBadEnumValue").SetSupplementary(fmt.Sprintf("unknown value '%s'", n))
+						}
+						v = t.New(n)
+					default:
+						return NewError("ErrBadType").SetSupplementary(fmt.Sprintf("got %T expected an option as a string", v))
+					}
 				}
 				switch t := cnf.(type) {
 				case ConfiguratorFunc:
@@ -427,6 +437,11 @@ func (ct *CompiledTemplate) validateAndConfigureItem(o interface{}, pos string, 
 							return NewError("ErrBadEnumValue").SetSupplementary(fmt.Sprintf("unknown value '%s'", n))
 						}
 						t.Set(n)
+					case Enum: // converted above
+						if !t.Has(n.String()) {
+							return NewError("ErrBadEnumValue").SetSupplementary(fmt.Sprintf("unknown value '%s'", n.String()))
+						}
+						t.Set(n.String())
 					default:
 						return NewError("ErrBadType").SetSupplementary(fmt.Sprintf("got %T expected an option as a string", v))
 					}
