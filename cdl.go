@@ -414,7 +414,7 @@ func (ct *CompiledTemplate) validateAndConfigureItem(o interface{}, pos string, 
 							v = int(n)
 						}
 					}
-				case *EnumType:
+				case EnumType:
 					switch n := o.(type) {
 					case string:
 						if !t.Has(n) {
