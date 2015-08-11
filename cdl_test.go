@@ -11,6 +11,8 @@ import (
 type checkTemplate map[string]cdl.Template
 type checkJson map[string]string
 
+var fruitPart = cdl.NewEnumType("flesh", "pips", "rind")
+
 var checkTemplates checkTemplate = checkTemplate{
 	"simple": cdl.Template{
 		"/":   "foo",
@@ -83,7 +85,7 @@ var checkTemplates checkTemplate = checkTemplate{
 		"/": "{}apple{3,1}",
 	},
 	"example": cdl.Template{
-		"/":         "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,} mango? blueberry? cherry?",
+		"/":         "{}apple peach? pear* plum+ raspberry{1,3} strawberry! kiwi{1,4}? guava!{1,2} orange?{2,} mango? blueberry? cherry? tangerine?",
 		"apple":     "float64",
 		"peach":     "number",
 		"pear":      "string",
@@ -94,12 +96,14 @@ var checkTemplates checkTemplate = checkTemplate{
 		"gods":      "{}thor? odin?",
 		"blueberry": "{}red yellow?",
 		"cherry":    "ipport",
+		"tangerine": fruitPart,
 	},
 	"integernumberstring": cdl.Template{
-		"/": "{}i? n? s? u? w?",
+		"/": "{}i? n? s? u? w? e? f?",
 		"n": "number",
 		"i": "integer",
 		"s": "string",
+		"e": fruitPart,
 	},
 }
 
@@ -383,7 +387,9 @@ var checkJsons checkJson = checkJson{
 			"n" : 0.5,
 			"s" : "hello",
 			"u" : "there",
-			"w" : 1
+			"w" : 1,
+			"e" : "rind",
+			"f" : "rind"
 		}
 	`,
 	"badintegernumberstring1": `
@@ -440,6 +446,46 @@ var checkJsons checkJson = checkJson{
 			"w" : "notanint"
 		}
 	`,
+	"badintegernumberstring7": `
+		{
+			"i" : 1,
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1,
+			"e" : "cerebralcortex"
+		}
+	`,
+	"badintegernumberstring8": `
+		{
+			"i" : 1,
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1,
+			"f" : "cerebralcortex"
+		}
+	`,
+	"badintegernumberstring9": `
+		{
+			"i" : 1,
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1,
+			"e" : 1
+		}
+	`,
+	"badintegernumberstring10": `
+		{
+			"i" : 1,
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1,
+			"f" : 1
+		}
+	`,
 	"cherry": `
 	{
 		"apple" : 3,
@@ -484,14 +530,47 @@ var checkJsons checkJson = checkJson{
 		"cherry": "127.0.0.1"
 	}
 	`,
+	"tangerine": `
+	{
+		"apple" : 3,
+		"pear" : [],
+		"plum" : [ 1 ],
+		"raspberry" : [ "a", "b" ],
+		"strawberry" : "here",
+		"guava": [ "c", "d" ],
+		"tangerine": "pips"
+	}
+	`,
+	"badtangerine1": `
+	{
+		"apple" : 3,
+		"pear" : [],
+		"plum" : [ 1 ],
+		"raspberry" : [ "a", "b" ],
+		"strawberry" : "here",
+		"guava": [ "c", "d" ],
+		"tangerine": "cerebralcortex"
+	}
+	`,
+	"badtangerine2": `
+	{
+		"apple" : 3,
+		"pear" : [],
+		"plum" : [ 1 ],
+		"raspberry" : [ "a", "b" ],
+		"strawberry" : "here",
+		"guava": [ "c", "d" ],
+		"tangerine": 7
+	}
+	`,
 }
 
 func isOneOrTwo(o interface{}) *cdl.CdlError {
 	if v, ok := o.(float64); !ok {
-		return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not a float64")
+		return cdl.NewError("ErrBadValue").SetSupplementary("is not a float64")
 	} else {
 		if v != 1 && v != 2 {
-			return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not 1 or 2")
+			return cdl.NewError("ErrBadValue").SetSupplementary("is not 1 or 2")
 		}
 	}
 	return nil
@@ -500,7 +579,7 @@ func isOneOrTwo(o interface{}) *cdl.CdlError {
 func dummy() {
 }
 
-func checkCompile(s string, e int) *cdl.CompiledTemplate {
+func checkCompile(s string, e string) *cdl.CompiledTemplate {
 	if t, ok := checkTemplates[s]; !ok {
 		log.Fatalf("Cannot find template %s", s)
 		return nil
@@ -509,103 +588,108 @@ func checkCompile(s string, e int) *cdl.CompiledTemplate {
 			if me, ok := err.(*cdl.CdlError); !ok {
 				log.Fatalf("Test checkCompile %s Bad error return %T", s, err)
 			} else {
-				if me.Type != e {
-					log.Fatalf("Test checkCompile %s Returned unexpected error - expecting %d got %v", s, e, me)
+				if me.Type.String() != e {
+					log.Fatalf("Test checkCompile %s Returned unexpected error - expecting '%s' got %v; %s", s, e, me.Type.String(), me.Error())
 				}
 			}
 			return nil
 		} else {
-			if e != 0 {
-				log.Fatalf("Test checkCompile %s was meant to error with %d but didn't", s, e)
+			if e != "" {
+				log.Fatalf("Test checkCompile %s was meant to error with '%s' but didn't", s, e)
 			}
 			return ct
 		}
 	}
 }
 
-func checkValidate(ct *cdl.CompiledTemplate, s string, e int, c cdl.Configurator) {
+func checkValidate(ct *cdl.CompiledTemplate, s string, e string, c cdl.Configurator) {
 	var m interface{}
 	if j, ok := checkJsons[s]; !ok {
-		log.Fatalf("Cannot find template %s", s)
+		log.Fatalf("Test checkValidate Cannot find template %s", s)
 	} else {
 		if err := json.Unmarshal([]byte(j), &m); err != nil {
-			log.Fatalf("Test checkJson %s JSON parse error: %v ", s, err)
+			log.Fatalf("Test checkValidate %s JSON parse error: %v ", s, err)
 		}
 
 		if err := ct.Validate(m, c); err != nil {
 			if me, ok := err.(*cdl.CdlError); !ok {
-				log.Fatalf("Test checkJson %s Bad error return %T", s, err)
+				log.Fatalf("Test checkValidate %s Bad error return %T", s, err)
 			} else {
-				if me.Type != e {
-					log.Fatalf("Test checkJson %s Returned unexpected error - expecting %d got %v", s, e, me)
+				if me.Type.String() != e {
+					log.Fatalf("Test checkValidate %s Returned unexpected error - expecting '%s' got %v; %s", s, e, me.Type.String(), me.Error())
 				}
 			}
 		} else {
-			if e != 0 {
-				log.Fatalf("Test checkJson %s was meant to error with %d but didn't", s, e)
+			if e != "" {
+				log.Fatalf("Test checkValidate %s was meant to error with '%s' but didn't", s, e)
 			}
 		}
 	}
 }
 
 func TestCompile(t *testing.T) {
-	checkCompile("simple", 0)
-	checkCompile("noroot", cdl.ErrMissingRoot)
-	checkCompile("badkey", cdl.ErrBadKey)
-	checkCompile("array1", 0)
-	checkCompile("array2", 0)
-	checkCompile("badarray1", cdl.ErrBadRangeOptionModifier)
-	checkCompile("badarray2", cdl.ErrBadRangeOptionModifier)
-	checkCompile("badarray3", cdl.ErrBadRangeOptionModifier)
-	checkCompile("badarray4", cdl.ErrBadRangeOptionModifier)
-	checkCompile("badarray5", cdl.ErrBadRangeOptionModifier)
-	checkCompile("badvalue", cdl.ErrBadValue)
-	checkCompile("validator", 0)
-	checkCompile("badvalidator1", cdl.ErrBadValue)
-	checkCompile("map", 0)
-	checkCompile("badmap1", cdl.ErrBadOptionValue)
-	checkCompile("badmap2", cdl.ErrBadOptionModifier)
-	checkCompile("badmap3", cdl.ErrBadOptionModifier)
-	checkCompile("badmap4", cdl.ErrBadOptionModifier)
-	checkCompile("badmap5", cdl.ErrBadOptionModifier)
-	checkCompile("badmap6", cdl.ErrBadOptionModifier)
-	checkCompile("badmap7", cdl.ErrBadOptionModifier)
-	checkCompile("badmap8", cdl.ErrBadRangeOptionModifierValue)
-	checkCompile("integernumberstring", 0)
+	checkCompile("simple", "")
+	checkCompile("noroot", "ErrMissingRoot")
+	checkCompile("badkey", "ErrBadKey")
+	checkCompile("array1", "")
+	checkCompile("array2", "")
+	checkCompile("badarray1", "ErrBadRangeOptionModifier")
+	checkCompile("badarray2", "ErrBadRangeOptionModifier")
+	checkCompile("badarray3", "ErrBadRangeOptionModifier")
+	checkCompile("badarray4", "ErrBadRangeOptionModifier")
+	checkCompile("badarray5", "ErrBadRangeOptionModifier")
+	checkCompile("badvalue", "ErrBadValue")
+	checkCompile("validator", "")
+	checkCompile("badvalidator1", "ErrBadValue")
+	checkCompile("map", "")
+	checkCompile("badmap1", "ErrBadOptionValue")
+	checkCompile("badmap2", "ErrBadOptionModifier")
+	checkCompile("badmap3", "ErrBadOptionModifier")
+	checkCompile("badmap4", "ErrBadOptionModifier")
+	checkCompile("badmap5", "ErrBadOptionModifier")
+	checkCompile("badmap6", "ErrBadOptionModifier")
+	checkCompile("badmap7", "ErrBadOptionModifier")
+	checkCompile("badmap8", "ErrBadRangeOptionModifierValue")
+	checkCompile("integernumberstring", "")
 }
 
 func TestValidate(t *testing.T) {
-	ct1 := checkCompile("example", 0)
+	ct1 := checkCompile("example", "")
 
-	checkValidate(ct1, "simple1", 0, nil)
-	checkValidate(ct1, "simple2", 0, nil)
-	checkValidate(ct1, "bad1", cdl.ErrBadType, nil)
-	checkValidate(ct1, "bad2", cdl.ErrBadType, nil)
-	checkValidate(ct1, "bad3", cdl.ErrBadValue, nil)
+	checkValidate(ct1, "simple1", "", nil)
+	checkValidate(ct1, "simple2", "", nil)
+	checkValidate(ct1, "bad1", "ErrBadType", nil)
+	checkValidate(ct1, "bad2", "ErrBadType", nil)
+	checkValidate(ct1, "bad3", "ErrBadValue", nil)
 
-	checkValidate(ct1, "mango", 0, nil)
-	checkValidate(ct1, "badmango1", cdl.ErrOutOfRange, nil)
-	checkValidate(ct1, "badmango2", cdl.ErrOutOfRange, nil)
-	checkValidate(ct1, "badmango3", cdl.ErrExpectedMap, nil)
-	checkValidate(ct1, "badmango4", cdl.ErrBadKey, nil)
+	checkValidate(ct1, "mango", "", nil)
+	checkValidate(ct1, "badmango1", "ErrOutOfRange", nil)
+	checkValidate(ct1, "badmango2", "ErrOutOfRange", nil)
+	checkValidate(ct1, "badmango3", "ErrExpectedMap", nil)
+	checkValidate(ct1, "badmango4", "ErrBadKey", nil)
 
-	checkValidate(ct1, "jupiter", 0, nil)
-	checkValidate(ct1, "badjupiter1", cdl.ErrExpectedArray, nil)
-	checkValidate(ct1, "badjupiter2", cdl.ErrBadKey, nil)
-	checkValidate(ct1, "badjupiter3", cdl.ErrExpectedMap, nil)
-	checkValidate(ct1, "badjupiter4", cdl.ErrExpectedMap, nil)
+	checkValidate(ct1, "jupiter", "", nil)
+	checkValidate(ct1, "badjupiter1", "ErrExpectedArray", nil)
+	checkValidate(ct1, "badjupiter2", "ErrBadKey", nil)
+	checkValidate(ct1, "badjupiter3", "ErrExpectedMap", nil)
+	checkValidate(ct1, "badjupiter4", "ErrExpectedMap", nil)
 
-	checkValidate(ct1, "blueberry", 0, nil)
-	checkValidate(ct1, "badblueberry1", cdl.ErrExpectedMap, nil)
-	checkValidate(ct1, "badblueberry2", cdl.ErrExpectedMap, nil)
-	checkValidate(ct1, "badblueberry3", cdl.ErrBadKey, nil)
-	checkValidate(ct1, "badblueberry4", cdl.ErrMissingMandatory, nil)
+	checkValidate(ct1, "blueberry", "", nil)
+	checkValidate(ct1, "badblueberry1", "ErrExpectedMap", nil)
+	checkValidate(ct1, "badblueberry2", "ErrExpectedMap", nil)
+	checkValidate(ct1, "badblueberry3", "ErrBadKey", nil)
+	checkValidate(ct1, "badblueberry4", "ErrMissingMandatory", nil)
 
-	checkValidate(ct1, "cherry", 0, nil)
-	checkValidate(ct1, "badcherry1", cdl.ErrBadType, nil)
-	checkValidate(ct1, "badcherry2", cdl.ErrBadType, nil)
-	checkValidate(ct1, "badcherry3", cdl.ErrBadType, nil)
-	ct2 := checkCompile("integernumberstring", 0)
+	checkValidate(ct1, "cherry", "", nil)
+	checkValidate(ct1, "badcherry1", "ErrBadType", nil)
+	checkValidate(ct1, "badcherry2", "ErrBadType", nil)
+	checkValidate(ct1, "badcherry3", "ErrBadType", nil)
+
+	checkValidate(ct1, "tangerine", "", nil)
+	checkValidate(ct1, "badtangerine1", "ErrBadEnumValue", nil)
+	checkValidate(ct1, "badtangerine2", "ErrBadType", nil)
+
+	ct2 := checkCompile("integernumberstring", "")
 
 	var n1 float64
 	var i1 int
@@ -624,15 +708,15 @@ func TestValidate(t *testing.T) {
 			return nil
 		},
 	}
-	checkValidate(ct2, "integernumberstring", 0, configurator)
+	checkValidate(ct2, "integernumberstring", "", configurator)
 	if (n1 != 0.5) || (i1 != 1) || (s1 != "hello") {
 		log.Fatalf("Configurator failed: results %d, %f, '%s'", i1, n1, s1)
 	}
-	checkValidate(ct2, "badintegernumberstring1", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring2", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring3", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring4", cdl.ErrBadType, configurator)
-	// tests 5 & 6 will not work as they look at bad values of untyped items for
+	checkValidate(ct2, "badintegernumberstring1", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring2", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring3", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring4", "ErrBadType", configurator)
+	// tests 5 onwards will not work as they look at bad values of untyped items for
 	// which the configurator is not set up in this test
 
 	var n2 float64
@@ -640,24 +724,31 @@ func TestValidate(t *testing.T) {
 	var s2 string
 	var u2 string
 	var w2 float64
+	var e2 = fruitPart.New("flesh")
+	var f2 = fruitPart.New("flesh")
 	configurator = cdl.Configurator{
 		"n": &n2,
 		"i": &i2,
 		"s": &s2,
 		"u": &u2,
 		"w": &w2,
+		"e": &e2,
+		"f": &f2,
 	}
-	checkValidate(ct2, "integernumberstring", 0, configurator)
-	if (n2 != 0.5) || (i2 != 1) || (s2 != "hello") || (u2 != "there") || (w2 != 1) {
-		log.Fatalf("Configurator failed: results %d, %f, '%s', '%s', %f", i2, n2, s2, u2, w2)
+	checkValidate(ct2, "integernumberstring", "", configurator)
+	if (n2 != 0.5) || (i2 != 1) || (s2 != "hello") || (u2 != "there") || (w2 != 1) || (e2.String() != "rind") || (f2.String() != "rind") {
+		log.Fatalf("Configurator failed: results %d, %f, '%s', '%s', %f, '%s', '%s'", i2, n2, s2, u2, w2, e2, f2)
 	}
-	checkValidate(ct2, "badintegernumberstring1", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring2", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring3", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring4", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring5", cdl.ErrBadType, configurator)
-	checkValidate(ct2, "badintegernumberstring6", cdl.ErrBadType, configurator)
-
+	checkValidate(ct2, "badintegernumberstring1", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring2", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring3", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring4", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring5", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring6", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring7", "ErrBadEnumValue", configurator)
+	checkValidate(ct2, "badintegernumberstring8", "ErrBadEnumValue", configurator)
+	checkValidate(ct2, "badintegernumberstring9", "ErrBadType", configurator)
+	checkValidate(ct2, "badintegernumberstring10", "ErrBadType", configurator)
 }
 
 func Example_cdlCompile() {
@@ -688,10 +779,10 @@ func Example_cdlValidate() {
 		"apple": "float64",
 		"peach": func(o interface{}) *cdl.CdlError {
 			if v, ok := o.(float64); !ok {
-				return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not a float64")
+				return cdl.NewError("ErrBadValue").SetSupplementary("is not a float64")
 			} else {
 				if v != 1 && v != 2 {
-					return cdl.NewError(cdl.ErrBadValue).SetSupplementary("is not 1 or 2")
+					return cdl.NewError("ErrBadValue").SetSupplementary("is not 1 or 2")
 				}
 			}
 			return nil

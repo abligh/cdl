@@ -109,16 +109,18 @@ optional, write `pear?*`).
 
 1. Each *key* must either be `/` (for the root key) or consist of *word characters* (i.e. matching `\w+` in regexp terms)
 
-2. Each *key* must have a value, which may be either a *validator function*, or
-a *validation instruction* in the form of a `string`
+2. Each *key* must have a value, which may be either:
+  * A *validator function*;
+  * A `cdl.EnumType` (in which case the data will be validated against that `EnumType`); or
+  * A *validation instruction* in the form of a `string`
 
 3. A *validator function* is a function with the signature `func(obj interface{}) (err *CdlError)`
 
-4. Each *validation instruction* may be either
-  * The Go name of a type (not a slice), e.g. `bool`, `string` etc. (in quotes as it's a `string`)
-  * A *pseudotype* (e.g. `number`, `integer`) - see below
-  * An *array specifier*, having a form beginning `[]`
-  * A *map specifier*, having a form beginning `{}`
+4. Each *validation instruction* is a quoted string, and may be either
+  * The Go name of a type (not a slice), e.g. `bool`, `string` etc. (in quotes as it's a `string`);
+  * A *pseudotype* (e.g. `number`, `integer`) in quotes - see below;
+  * An *array specifier*, having a form beginning `[]`; or
+  * A *map specifier*, having a form beginning `{}`.
 
 5. Each *pseudotype* may be either
   * The word `number` which indicates any numerical type (not `bool`)
@@ -195,6 +197,9 @@ being required will cause a type conversion:
 1. If you required the pseudo-type `number`, you will be always be given a `float64`
 
 2. If you required the pseudo-type `integer`, you will always be given an `int`
+
+If a pointer to an `Enum` is given, a `string` value is expected in the data,
+and it will be validated against that `Enum`.
 
 If a pointer configuration function is used, it has a `ConfiguratorFunc` type
 (or a function with a similar signature), which looks like this:
