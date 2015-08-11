@@ -180,8 +180,24 @@ A cdl configurator may optionally be passed to the `Validate` function. The
 configurator allows you to consume the configuration in your program now
 you know that is validated.
 
-The configurator consists of a map of keys to the `ConfiguratorFunc` type (or a
-function with a similar signature), which looks like this:
+The configurator consists of a map of keys to items. Each item should
+be either
+* a pointer to the variable to be set; or
+* a pointer to a configuration function.
+
+If a pointer to a variable is used, the variable must be of the same
+type as the item in the configuration, or an error will be issued;
+therefore as a type check is performed here, it is unnecessary in this
+case to require a specific type in the template. If a specific
+type is require, a type check is done twice. Certain pseudo-types
+being required will cause a type conversion:
+
+1. If you required the pseudo-type `number`, you will be always be given a `float64`
+
+2. If you required the pseudo-type `integer`, you will always be given an `int`
+
+A pointer configuration function has a `ConfiguratorFunc` type
+(or a function with a similar signature), which looks like this:
 
 ```go
 type ConfiguratorFunc func(obj interface{}, path Path) (err *CdlError)

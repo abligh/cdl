@@ -95,10 +95,11 @@ var checkTemplates checkTemplate = checkTemplate{
 		"blueberry": "{}red yellow?",
 		"cherry":    "ipport",
 	},
-	"integernumber": cdl.Template{
-		"/": "{}i? n?",
+	"integernumberstring": cdl.Template{
+		"/": "{}i? n? s? u? w?",
 		"n": "number",
 		"i": "integer",
+		"s": "string",
 	},
 }
 
@@ -376,28 +377,67 @@ var checkJsons checkJson = checkJson{
 			"blueberry": { "yellow" : 1 }
 		}
 	`,
-	"integernumber": `
+	"integernumberstring": `
 		{
 			"i" : 1,
-			"n" : 0.5
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1
 		}
 	`,
-	"badintegernumber1": `
+	"badintegernumberstring1": `
 		{
 			"i" : 1.1,
-			"n" : 0.5
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1
 		}
 	`,
-	"badintegernumber2": `
+	"badintegernumberstring2": `
 		{
 			"i" : "a string",
-			"n" : 0.5
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1
 		}
 	`,
-	"badintegernumber3": `
+	"badintegernumberstring3": `
 		{
 			"i" : 1,
-			"n" : "a string"
+			"n" : "a string",
+			"s" : "hello",
+			"u" : "there",
+			"w" : 1
+		}
+	`,
+	"badintegernumberstring4": `
+		{
+			"i" : 1,
+			"n" : 0.5,
+			"s" : 37,
+			"u" : "there",
+			"w" : 1
+		}
+	`,
+	"badintegernumberstring5": `
+		{
+			"i" : 1,
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : 2,
+			"w" : 1
+		}
+	`,
+	"badintegernumberstring6": `
+		{
+			"i" : 1,
+			"n" : 0.5,
+			"s" : "hello",
+			"u" : "there",
+			"w" : "notanint"
 		}
 	`,
 	"cherry": `
@@ -531,7 +571,7 @@ func TestCompile(t *testing.T) {
 	checkCompile("badmap6", cdl.ErrBadOptionModifier)
 	checkCompile("badmap7", cdl.ErrBadOptionModifier)
 	checkCompile("badmap8", cdl.ErrBadRangeOptionModifierValue)
-	checkCompile("integernumber", 0)
+	checkCompile("integernumberstring", 0)
 }
 
 func TestValidate(t *testing.T) {
@@ -565,26 +605,58 @@ func TestValidate(t *testing.T) {
 	checkValidate(ct1, "badcherry1", cdl.ErrBadType, nil)
 	checkValidate(ct1, "badcherry2", cdl.ErrBadType, nil)
 	checkValidate(ct1, "badcherry3", cdl.ErrBadType, nil)
-	ct2 := checkCompile("integernumber", 0)
+	ct2 := checkCompile("integernumberstring", 0)
 
-	var n float64
-	var i int
-	checkValidate(ct2, "integernumber", 0, cdl.Configurator{
+	var n1 float64
+	var i1 int
+	var s1 string
+	configurator := cdl.Configurator{
 		"n": func(o interface{}, p cdl.Path) *cdl.CdlError {
-			n = o.(float64)
+			n1 = o.(float64)
 			return nil
 		},
 		"i": func(o interface{}, p cdl.Path) *cdl.CdlError {
-			i = o.(int)
+			i1 = o.(int)
 			return nil
 		},
-	})
-	if (i != 1) || (n != 0.5) {
-		log.Fatalf("Configurator failed: results %d, %f", i, n)
+		"s": func(o interface{}, p cdl.Path) *cdl.CdlError {
+			s1 = o.(string)
+			return nil
+		},
 	}
-	checkValidate(ct2, "badintegernumber1", cdl.ErrBadType, nil)
-	checkValidate(ct2, "badintegernumber2", cdl.ErrBadType, nil)
-	checkValidate(ct2, "badintegernumber3", cdl.ErrBadType, nil)
+	checkValidate(ct2, "integernumberstring", 0, configurator)
+	if (n1 != 0.5) || (i1 != 1) || (s1 != "hello") {
+		log.Fatalf("Configurator failed: results %d, %f, '%s'", i1, n1, s1)
+	}
+	checkValidate(ct2, "badintegernumberstring1", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring2", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring3", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring4", cdl.ErrBadType, configurator)
+	// tests 5 & 6 will not work as they look at bad values of untyped items for
+	// which the configurator is not set up in this test
+
+	var n2 float64
+	var i2 int
+	var s2 string
+	var u2 string
+	var w2 float64
+	configurator = cdl.Configurator{
+		"n": &n2,
+		"i": &i2,
+		"s": &s2,
+		"u": &u2,
+		"w": &w2,
+	}
+	checkValidate(ct2, "integernumberstring", 0, configurator)
+	if (n2 != 0.5) || (i2 != 1) || (s2 != "hello") || (u2 != "there") || (w2 != 1) {
+		log.Fatalf("Configurator failed: results %d, %f, '%s', '%s', %f", i2, n2, s2, u2, w2)
+	}
+	checkValidate(ct2, "badintegernumberstring1", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring2", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring3", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring4", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring5", cdl.ErrBadType, configurator)
+	checkValidate(ct2, "badintegernumberstring6", cdl.ErrBadType, configurator)
 
 }
 
@@ -630,8 +702,15 @@ func Example_cdlValidate() {
 		log.Fatalf("Error on compile: %v", err)
 	} else {
 
+		var strawberry string
+
 		// here's our configurator
 		configurator := cdl.Configurator{
+
+			// First an easy example using a pointer
+			"strawberry": &strawberry,
+
+			// Now a more complex example using a string
 			"apple": func(o interface{}, p cdl.Path) *cdl.CdlError {
 				fmt.Printf("Apple is %1.0f - ", o.(float64))
 				return nil
@@ -659,6 +738,10 @@ func Example_cdlValidate() {
 		// Validate it
 		if err := ct.Validate(m, configurator); err != nil {
 			log.Fatalf("Validation error: %v", err)
+		}
+
+		if strawberry != "here" {
+			log.Fatal("Strawberry variable not set correctly")
 		}
 
 		fmt.Println("Success!")

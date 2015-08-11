@@ -3,6 +3,7 @@ package cdl
 import (
 	"fmt"
 	"net"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -64,7 +65,7 @@ const (
 	ErrOutOfRange                  = iota
 	ErrBadType                     = iota
 	ErrMissingMandatory            = iota
-	ErrBadConfigurator			   = iota
+	ErrBadConfigurator             = iota
 )
 
 var ErrorMap map[int]string = map[int]string{
@@ -448,8 +449,7 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string, configurator
 					}
 				}
 			default:
-				otype := fmt.Sprintf("%T", o)
-				if otype == t {
+				if reflect.TypeOf(o).String() == t {
 					ok = true
 				}
 			}
@@ -463,6 +463,24 @@ func (ct *CompiledTemplate) validateItem(o interface{}, pos string, configurator
 		}
 	}
 	return nil
+}
+
+func assign(ptr interface{}, obj interface{}) *CdlError {
+	p := reflect.ValueOf(ptr)
+
+	switch p.Kind() {
+	case reflect.Ptr:
+		v := p.Elem()
+		if v.Type() != reflect.TypeOf(obj) {
+			return NewError(ErrBadType).SetSupplementary(fmt.Sprintf("at configuration got %s expected %s",
+				v.Type().String(),
+				reflect.TypeOf(obj).String()))
+		}
+		v.Set(reflect.ValueOf(obj))
+		return nil
+	default:
+		return NewError(ErrBadConfigurator).SetSupplementary("got object that is not a pointer")
+	}
 }
 
 func (ct *CompiledTemplate) validateAndConfigureItem(o interface{}, pos string, configurator Configurator, path Path) *CdlError {
@@ -542,7 +560,13 @@ func (ct *CompiledTemplate) validateAndConfigureItem(o interface{}, pos string, 
 				case func(interface{}, Path) *CdlError: // in case they didn't cast it
 					return t(v, path)
 				default:
-					return NewError(ErrBadConfigurator)
+					if reflect.ValueOf(cnf).Kind() == reflect.Ptr {
+						if err := assign(cnf, v); err != nil {
+							return err
+						}
+					} else {
+						return NewError(ErrBadConfigurator).SetSupplementary("got unknown type")
+					}
 				}
 			}
 		}
